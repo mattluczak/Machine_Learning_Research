@@ -16,13 +16,16 @@ from xgboost import XGBRegressor
 
 # AUTO SAVE ALL GRAPHS
 
+OUTPUT_DIR = Path.home() / "model_outputs"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 graph_number = 1
 original_show = plt.show
 
 def save_and_show(*args, **kwargs):
     global graph_number
 
-    filename = Path.cwd() / f"Graph_{graph_number:02d}.png"
+    filename = OUTPUT_DIR / f"Graph_{graph_number:02d}.png"
 
     plt.savefig(
         filename,
@@ -30,7 +33,7 @@ def save_and_show(*args, **kwargs):
         bbox_inches="tight"
     )
 
-    print(f"Saved: {filename.name}")
+    print(f"Saved: {filename}")
 
     graph_number += 1
     original_show(*args, **kwargs)
@@ -41,6 +44,7 @@ plt.show = save_and_show
 
 n_samples_test = 2
 shap_budget = 16
+shap_background_size = None
 
 n_samples = 500
 n_features = 10
@@ -132,6 +136,7 @@ xgb_explainer_1 = shapiq.TabularExplainer(
     index="SV",
     max_order=1,
     random_state=42,
+    sample_size=shap_background_size,
 )
 
 xgb_shap_1 = [
@@ -198,6 +203,7 @@ tabicl_explainer_1 = shapiq.TabularExplainer(
     index="SV",
     max_order=1,
     random_state=42,
+    sample_size=shap_background_size,
 )
 
 tabicl_shap_1 = [
@@ -370,6 +376,7 @@ xgb_explainer_2 = shapiq.TabularExplainer(
     index="SV",
     max_order=1,
     random_state=42,
+    sample_size=shap_background_size,
 )
 
 xgb_shap_2 = [
@@ -433,6 +440,7 @@ tabicl_explainer_2 = shapiq.TabularExplainer(
     index="SV",
     max_order=1,
     random_state=42,
+    sample_size=shap_background_size,
 )
 
 tabicl_shap_2 = [
@@ -918,11 +926,6 @@ fig.colorbar(
 plt.title("Boston Housing Predictor Correlation Matrix")
 plt.tight_layout()
 
-plt.savefig(
-    "Boston_Housing_Correlation_Matrix.pdf",
-    bbox_inches="tight",
-)
-
 plt.show()
 plt.close()
 
@@ -1234,6 +1237,7 @@ def run_boston_regression_experiment(
         index="SV",
         max_order=1,
         random_state=42,
+        sample_size=shap_background_size,
     )
 
     xgb_shap = [
@@ -1287,6 +1291,7 @@ def run_boston_regression_experiment(
         index="SV",
         max_order=1,
         random_state=42,
+        sample_size=shap_background_size,
     )
 
     tabicl_shap = [
@@ -1501,6 +1506,7 @@ def get_mean_absolute_shap_ranking(
         index="SV",
         max_order=1,
         random_state=42,
+        sample_size=shap_background_size,
     )
 
     explanations = [
