@@ -11,4 +11,8 @@
 module load python  # Required modules
 conda activate ENVIRONMENT
 
-python ${1}.py
+source ~/.venvs/ml-research/bin/activate
+
+find ~/model_outputs -maxdepth 1 -type f -name 'Graph_*.png' -delete
+
+MPLBACKEND=Agg python -u ${1}.py
