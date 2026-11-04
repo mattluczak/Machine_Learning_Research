@@ -70,6 +70,8 @@ tabicl_n_estimators = 8           # Number of TabICL ensemble estimators.
 tabicl_kv_cache = False           # Whether TabICL uses its key/value prediction cache.
 tabdpt_n_ensembles = 1            # Number of TabDPT inference ensembles for fast initial tests.
 tabdpt_context_size = None        # TabDPT max context rows; None uses all available context.
+tabdpt_use_flash = False
+tabdpt_compile = False
 kumo_size = "medium"              # Kumo Tabular size: "small", "medium", or "large".
 kumo_n_estimators = 1             # Kumo inference ensemble size (higher is slower).
 kumo_query_batch_size = 128       # Maximum Kumo query rows per prediction batch.
@@ -107,7 +109,7 @@ SYNTHETIC_1_ICE_FEATURES = ["x1", "x2"]
 SYNTHETIC_2_ICE_FEATURES = ["x1", "x2", "x3", "x4", "x5", "x6"]
 
 # Execution toggles
-RUN_SMOKE_TEST_ONLY = False       # True: quick four-model fit/predict check, then exit.
+RUN_SMOKE_TEST_ONLY = False       # Runs a test for the model installations.
 RUN_BASELINE = True               # Master toggle for baseline datasets, model plots and R2.
 RUN_SYNTHETIC_1 = True            # Include the first synthetic baseline dataset.
 RUN_SYNTHETIC_2 = True            # Include the second synthetic baseline dataset.
@@ -189,7 +191,10 @@ def make_xgboost_regressor():
 
 class TabDPTRegressorAdapter:
     def __init__(self):
-        self.model = TabDPTRegressor()
+        self.model = TabDPTRegressor(
+            use_flash=tabdpt_use_flash,
+            compile=tabdpt_compile,
+        )
 
     def fit(self, X, y):
         self.model.fit(np.asarray(X), np.asarray(y).reshape(-1))
