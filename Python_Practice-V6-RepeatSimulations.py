@@ -48,8 +48,8 @@ plt.show = save_and_show
 # SETTINGS
 
 # Dataset and SHAP settings
-n_samples_test = 100                 # Test observations explained with SHAP per model / condition.
-shap_budget = 256                   # Model-evaluation budget per SHAP explanation (not total budget).
+n_samples_test = 25                 # Test observations explained with SHAP per model / condition.
+shap_budget = 128                   # Model-evaluation budget per SHAP explanation (not total budget).
 shap_background_size = None        # SHAP background sample count; None uses the shapiq default.
 n_samples = 500                    # Rows in each synthetic dataset.
 n_features = 10                    # Predictors, including noise features; must be at least 6.
