@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#SBATCH --output=/users/mluczak2/model_outputs/job_%j.out
+#SBATCH --error=/users/mluczak2/model_outputs/job_%j.err
+
 #$ -M mluczak2@nd.edu   # Email address for job notification
 #$ -m abe            # Send mail when job begins, ends and aborts
 #$ -pe smp 1         # Specify parallel environment and legal core size

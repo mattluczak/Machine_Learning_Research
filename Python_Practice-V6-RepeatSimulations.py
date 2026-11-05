@@ -48,9 +48,9 @@ plt.show = save_and_show
 # SETTINGS
 
 # Dataset and SHAP settings
-n_samples_test = 2                 # Test observations explained with SHAP per model / condition.
-shap_budget = 16                   # Model-evaluation budget per SHAP explanation (not total budget).
-shap_background_size = None       # SHAP background sample count; None uses the shapiq default.
+n_samples_test = 100                 # Test observations explained with SHAP per model / condition.
+shap_budget = 256                   # Model-evaluation budget per SHAP explanation (not total budget).
+shap_background_size = None        # SHAP background sample count; None uses the shapiq default.
 n_samples = 500                    # Rows in each synthetic dataset.
 n_features = 10                    # Predictors, including noise features; must be at least 6.
 test_fraction = 0.25               # Fraction of observations held out for evaluation.
@@ -59,7 +59,7 @@ feature_std = 1.0                  # Standard deviation of simulated continuous 
 target_noise_std = 1.0             # Target error standard deviation in baseline experiments.
 
 # Repeated-experiment settings
-n_replicates = 1                  # Independent replicate scores averaged for R2 and rankings.
+n_replicates = 10                  # Independent replicate scores averaged for R2 and rankings.
 noise_variance_levels = [0.25, 0.50, 1.00, 2.00, 4.00]  # X-axis values in variance sweeps.
 rho = 0.0                          # Fixed predictor correlation in noise-variance sweeps.
 rho_levels = [0.0, 0.2, 0.4, 0.6, 0.8]  # X-axis values in correlation sweeps.
@@ -129,7 +129,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_NAMES = ("XGBoost", "TabICL", "TabDPT", "Kumo")
 MODEL_COLORS = {"XGBoost": "tab:green", "TabICL": "tab:blue",
                 "TabDPT": "tab:red", "Kumo": "tab:purple"}
-MODEL_MARKERS = {"XGBoost": "X", "TabICL": "I", "TabDPT": "D", "Kumo": "K"}
+MODEL_MARKERS = {"XGBoost": "X", "TabICL": "o", "TabDPT": "D", "Kumo": "s"}
 
 # HELPER FUNCTIONS
 
@@ -3163,4 +3163,4 @@ if RUN_RHO_SWEEP:
         sweep_type="rho",
     )
 
-print(f"Finished V7. Graphs and optional CSV files are in {OUTPUT_DIR}", flush=True)
+print(f"Finished V6. Graphs and optional CSV files are in {OUTPUT_DIR}", flush=True)
