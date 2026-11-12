@@ -22,14 +22,15 @@ from xgboost import XGBRegressor
 # SETTINGS
 
 # Synthetic dataset and evaluation settings
-n_samples = 500                     # Observations in each fixed synthetic feature matrix.
+n_samples = 500                    # Observations in each fixed synthetic feature matrix.
 n_features = 10                    # Total predictors, including irrelevant ones (>= 6).
 test_fraction = 0.25               # Fraction of observations held out for R² and SHAP.
 feature_mean = 0.0                 # Mean of continuous predictors before rho transformation.
 feature_std = 1.0                  # SD of continuous predictors before rho transformation.
-n_samples_test = 25                # Held-out observations explained with SHAP per fit.
-shap_budget = 128                  # Model evaluation budget per SHAP explanation.
-shap_background_size = None       # None uses shapiq's default background sample size.
+n_samples_test = 100               # Held-out observations explained with SHAP per fit.
+shap_budget = 32                   # Model evaluation budget per SHAP explanation.
+shap_background_size = None        # None uses shapiq's default background sample size.
+feature_distribution = "mixed"     # "normal" or "mixed"
 
 # Repeated experiments
 n_replicates = 10                  # Scores averaged for each model and parameter level.
@@ -107,11 +108,12 @@ RUN_SMOKE_TEST_ONLY = False        # True: one model, one dataset, one replicate
 SMOKE_TEST_MODEL = "Kumo"       # Choose one of MODEL_NAMES below.
 SMOKE_TEST_SIMULATION = 2          # 1 or 2. The smoke test checks all configured levels.
 RUN_VARIANCE_SWEEP = True
-RUN_RHO_SWEEP = True
+RUN_RHO_SWEEP = False
 RUN_SYNTHETIC_1 = True
 RUN_SYNTHETIC_2 = True
 RUN_DETAILED_PLOTS = False         # True: SHAP bars/beeswarms, ICE, LOCO for replicate 1.
 save_csv = True                   # Write sweep_runs.csv and sweep_summary.csv.
+standardize_signal = True
 
 OUTPUT_DIR = Path(os.environ.get("MODEL_OUTPUT_DIR") or
                   str(Path.home() / "model_outputs")).expanduser().resolve()
@@ -341,20 +343,62 @@ def build_simulation_signal(X, simulation_number):
         return synthetic_2_signal(X)
     raise ValueError("Unknown simulation number")
 
-
 def generate_synthetic_features(simulation_number):
-    """Generate one X matrix per simulation and sweep, as in V6.
-
-    Replicates reuse X; training/test splits and target-error draws vary by
-    replicate. This preserves V6's comparison across parameter levels.
-    """
-    seed = synthetic_1_seed if simulation_number == 1 else synthetic_2_seed
+    seed = (
+        synthetic_1_seed if simulation_number == 1
+        else synthetic_2_seed
+    )
     rng = np.random.default_rng(seed)
-    X = rng.normal(loc=feature_mean, scale=feature_std,
-                   size=(n_samples, n_features))
+
+    X = rng.normal(
+        loc=feature_mean,
+        scale=feature_std,
+        size=(n_samples, n_features)
+    )
+
+    if feature_distribution == "mixed":
+
+        # x1: right-skewed
+        X[:, 0] = rng.exponential(
+            scale=1.0, size=n_samples
+        )
+
+        # x2: heavy-tailed
+        X[:, 1] = rng.standard_t(
+            df=3, size=n_samples
+        )
+
+        # x3: bimodal
+        X[:, 2] = (
+            rng.choice([-2.0, 2.0], size=n_samples)
+            + rng.normal(0, 0.35, size=n_samples)
+        )
+
+        # x4: uniform
+        X[:, 3] = rng.uniform(
+            -2.0, 2.0, size=n_samples
+        )
+
+        # Standardize continuous features,
+        # preserving their non-Gaussian shapes
+        ids = get_continuous_feature_ids(
+            simulation_number
+        )
+
+        X[:, ids] = (
+            (X[:, ids] - X[:, ids].mean(axis=0))
+            / X[:, ids].std(axis=0, ddof=1)
+        ) * feature_std + feature_mean
+
+    elif feature_distribution != "normal":
+        raise ValueError("Unknown feature distribution")
+
+    # Preserve the binary x6 in Simulation 2
     if simulation_number == 2:
-        X[:, SIMULATION_2_BINARY_FEATURE_ID] = rng.integers(
-            low=0, high=2, size=n_samples)
+        X[:, SIMULATION_2_BINARY_FEATURE_ID] = (
+            rng.integers(0, 2, size=n_samples)
+        )
+
     return X
 
 
@@ -588,6 +632,11 @@ def run_parameter_ranking_experiment(X_base, simulation_number, true_feature_ids
                 transform_at_zero=(sweep_type == "rho"),
             )
             signal = build_simulation_signal(X, simulation_number)
+            if standardize_signal:
+                signal = (
+                (signal - signal.mean())
+                / signal.std(ddof=0)
+                )
             y = signal + np.sqrt(current_variance) * base_noise
             X_train, X_test = X[train_ids], X[test_ids]
             y_train, y_test = y[train_ids], y[test_ids]

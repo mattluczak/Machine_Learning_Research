@@ -22,14 +22,15 @@ from xgboost import XGBRegressor
 # SETTINGS
 
 # Synthetic dataset and evaluation settings
-n_samples = 500                     # Observations in each fixed synthetic feature matrix.
+n_samples = 500                    # Observations in each fixed synthetic feature matrix.
 n_features = 10                    # Total predictors, including irrelevant ones (>= 6).
 test_fraction = 0.25               # Fraction of observations held out for R² and SHAP.
 feature_mean = 0.0                 # Mean of continuous predictors before rho transformation.
 feature_std = 1.0                  # SD of continuous predictors before rho transformation.
-n_samples_test = 25                # Held-out observations explained with SHAP per fit.
-shap_budget = 128                  # Model evaluation budget per SHAP explanation.
-shap_background_size = None       # None uses shapiq's default background sample size.
+n_samples_test = 100               # Held-out observations explained with SHAP per fit.
+shap_budget = 32                   # Model evaluation budget per SHAP explanation.
+shap_background_size = None        # None uses shapiq's default background sample size.
+sim_1_form = "nonlinear"           # "linear" or "nonlinear"
 
 # Repeated experiments
 n_replicates = 10                  # Scores averaged for each model and parameter level.
@@ -39,15 +40,29 @@ rho_levels = [0.0, 0.2, 0.4, 0.6, 0.8]
 rho_noise_variance = 1.0           # Fixed response-error variance in rho sweeps.
 
 # SYNTHETIC DATASET FORMS
-# X[:, 0] = x1, X[:, 1] = x2, etc. These return the noise-free signal.
-# The experiment runner adds independent N(0, variance) target noise.
 
 sim_1_x1_coefficient = 2.0
-sim_1_x2_coefficient = 1.0
+sim_1_x2_coefficient = 1.5
 
 def synthetic_1_signal(X):
-    """Dataset 1: y = 2*x1 + x2 + epsilon."""
-    return sim_1_x1_coefficient * X[:, 0] + sim_1_x2_coefficient * X[:, 1]
+    x1 = X[:, 0]
+    x2 = X[:, 1]
+
+    if sim_1_form == "linear":
+        return (
+            sim_1_x1_coefficient * x1
+            + sim_1_x2_coefficient * x2
+        )
+
+    elif sim_1_form == "nonlinear":
+        return (
+            2.0 * np.sin(2.0 * x1)
+            + 1.5 * x2**2
+            + x1 * x2
+        )
+
+    else:
+        raise ValueError("Unknown simulation 1 form")
 
 sim_2_indicator_cutoff = 0.0
 sim_2_indicator_effect = 1.0
@@ -112,6 +127,7 @@ RUN_SYNTHETIC_1 = True
 RUN_SYNTHETIC_2 = True
 RUN_DETAILED_PLOTS = False         # True: SHAP bars/beeswarms, ICE, LOCO for replicate 1.
 save_csv = True                   # Write sweep_runs.csv and sweep_summary.csv.
+standardize_signal = True
 
 OUTPUT_DIR = Path(os.environ.get("MODEL_OUTPUT_DIR") or
                   str(Path.home() / "model_outputs")).expanduser().resolve()
@@ -588,6 +604,11 @@ def run_parameter_ranking_experiment(X_base, simulation_number, true_feature_ids
                 transform_at_zero=(sweep_type == "rho"),
             )
             signal = build_simulation_signal(X, simulation_number)
+            if standardize_signal:
+                signal = (
+                (signal - signal.mean())
+                / signal.std(ddof=0)
+                )
             y = signal + np.sqrt(current_variance) * base_noise
             X_train, X_test = X[train_ids], X[test_ids]
             y_train, y_test = y[train_ids], y[test_ids]

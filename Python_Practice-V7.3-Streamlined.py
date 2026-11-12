@@ -22,14 +22,14 @@ from xgboost import XGBRegressor
 # SETTINGS
 
 # Synthetic dataset and evaluation settings
-n_samples = 500                     # Observations in each fixed synthetic feature matrix.
+n_samples = 500                    # Observations in each fixed synthetic feature matrix.
 n_features = 10                    # Total predictors, including irrelevant ones (>= 6).
 test_fraction = 0.25               # Fraction of observations held out for R² and SHAP.
 feature_mean = 0.0                 # Mean of continuous predictors before rho transformation.
 feature_std = 1.0                  # SD of continuous predictors before rho transformation.
-n_samples_test = 25                # Held-out observations explained with SHAP per fit.
-shap_budget = 128                  # Model evaluation budget per SHAP explanation.
-shap_background_size = None       # None uses shapiq's default background sample size.
+n_samples_test = 100               # Held-out observations explained with SHAP per fit.
+shap_budget = 32                   # Model evaluation budget per SHAP explanation.
+shap_background_size = None        # None uses shapiq's default background sample size.
 
 # Repeated experiments
 n_replicates = 10                  # Scores averaged for each model and parameter level.
@@ -39,8 +39,8 @@ rho_levels = [0.0, 0.2, 0.4, 0.6, 0.8]
 rho_noise_variance = 1.0           # Fixed response-error variance in rho sweeps.
 
 # SYNTHETIC DATASET FORMS
-# X[:, 0] = x1, X[:, 1] = x2, etc. These return the noise-free signal.
-# The experiment runner adds independent N(0, variance) target noise.
+error_distribution = "lognormal"   # "gaussian" or "lognormal"
+error_skew_sigma = 1.5             # Larger = more right-skewed
 
 sim_1_x1_coefficient = 2.0
 sim_1_x2_coefficient = 1.0
@@ -112,6 +112,7 @@ RUN_SYNTHETIC_1 = True
 RUN_SYNTHETIC_2 = True
 RUN_DETAILED_PLOTS = False         # True: SHAP bars/beeswarms, ICE, LOCO for replicate 1.
 save_csv = True                   # Write sweep_runs.csv and sweep_summary.csv.
+standardize_signal = True
 
 OUTPUT_DIR = Path(os.environ.get("MODEL_OUTPUT_DIR") or
                   str(Path.home() / "model_outputs")).expanduser().resolve()
@@ -575,8 +576,26 @@ def run_parameter_ranking_experiment(X_base, simulation_number, true_feature_ids
         )
         rng = np.random.default_rng(
             ranking_seed_base + 1000 * simulation_number + replicate_id
+        )       
+        
+        if error_distribution == "gaussian":
+            base_noise = rng.normal(
+                loc=0.0, scale=1.0, size=len(X_base)
+            )
+
+        elif error_distribution == "lognormal":
+            base_noise = rng.lognormal(
+                mean=0.0,
+                sigma=error_skew_sigma,
+                size=len(X_base)
+            )
+        else:
+            raise ValueError("Unknown error distribution")
+
+        base_noise = (
+            (base_noise - base_noise.mean())
+            / base_noise.std(ddof=0)
         )
-        base_noise = rng.normal(loc=0.0, scale=1.0, size=len(X_base))
 
         for level in levels:
             current_rho = rho if sweep_type == "noise_variance" else level
@@ -588,6 +607,11 @@ def run_parameter_ranking_experiment(X_base, simulation_number, true_feature_ids
                 transform_at_zero=(sweep_type == "rho"),
             )
             signal = build_simulation_signal(X, simulation_number)
+            if standardize_signal:
+                signal = (
+                (signal - signal.mean())
+                / signal.std(ddof=0)
+                )
             y = signal + np.sqrt(current_variance) * base_noise
             X_train, X_test = X[train_ids], X[test_ids]
             y_train, y_test = y[train_ids], y[test_ids]
